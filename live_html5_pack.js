@@ -1077,7 +1077,23 @@ var CommentManager = (function() {
 		this.ttlRecalcAll=function(){
 			this.runline.forEach(ttlRecalc);
 		};
+		var sendQueue=[];
+		this.send = function(data){
+			sendQueue.push(data);
+		}
+		this.sendQueueLoader = function(){
+			var start = performance.now(),passed;
+			while(sendQueue.length > 0){
+				self.sendAsync(sendQueue.shift());
+				
+				passed = performance.now()-start;
+				if(passed > 8)
+					return;
+			}
+			
+		}
 		requestAnimationFrame(this.canvasDrawerWrapper);
+		setInterval(this.sendQueueLoader,1e3/60);
 		(function(){
 			var prevRatio = window.devicePixelRatio;
 			window.addEventListener('resize',function(){
@@ -1304,8 +1320,8 @@ var CommentManager = (function() {
 			cmt.dur = ( this.width + cmt.width ) * cmt.speed * 1e3;
 			cmt.ttl = cmt.dur - runned;
 		}
-	},commentCanvas = document.createElement('canvas'), commentCanvasCtx = commentCanvas.getContext('2d'), commentCanvasDrawer = function(cmt){
-		var devicePixelRatio = window.devicePixelRatio;
+	},commentCanvasDrawer = function(cmt){
+		var commentCanvas = document.createElement('canvas'), commentCanvasCtx = commentCanvas.getContext('2d'), devicePixelRatio = window.devicePixelRatio;
 		commentCanvasCtx.font = (cmt.size * devicePixelRatio) + 'px ' + font;
 		cmt.width = ceil(commentCanvasCtx.measureText(cmt.text).width / devicePixelRatio)+2;
 		cmt.height = ceil(cmt.size+3)+2;
@@ -1315,26 +1331,24 @@ var CommentManager = (function() {
 		commentCanvas.width = cmt.oriWidth;
 		commentCanvas.height = cmt.oriHeight;
 		commentCanvasCtx.font = (cmt.size * devicePixelRatio) + 'px ' + font;
-		commentCanvasCtx.lineWidth = 1;
+		commentCanvasCtx.lineWidth = round(1 * devicePixelRatio);
 		commentCanvasCtx.strokeStyle = (cmt._color == 0) ? '#FFFFFF' : '#000000';
 		commentCanvasCtx.textBaseline = 'bottom';
 		commentCanvasCtx.textAlign = 'left';
 		
-		commentCanvasCtx.shadowBlur = 2;
+		commentCanvasCtx.shadowBlur = round(2 * devicePixelRatio);
 		commentCanvasCtx.shadowColor = (cmt._color == 0) ? '#FFFFFF' : '#000000';
 		commentCanvasCtx.fillStyle = '#' + colorGetter(cmt.color);
 		commentCanvasCtx.strokeText(cmt.text, 1, commentCanvas.height-1);
 		commentCanvasCtx.fillText(cmt.text, 1, commentCanvas.height-1);
 		
 		if(cmt.border){
-			commentCanvasCtx.lineWidth = 2;
+			commentCanvasCtx.lineWidth = round(2 * devicePixelRatio);
 			commentCanvasCtx.strokeStyle = '#00ffff';
 			commentCanvasCtx.shadowBlur = 0;
 			commentCanvasCtx.strokeRect(0,0,commentCanvas.width,commentCanvas.height);
 		}
-		
-		cmt.textData = new Image();
-		cmt.textData.src = commentCanvas.toDataURL();
+		cmt.textData = commentCanvas;
 	};
 	CommentManager.prototype.getCommentFromPoint = function(x, y){
 		var dmList=[],dx,dy,height=this.height;
@@ -1381,13 +1395,6 @@ var CommentManager = (function() {
 		cmt.originalData=data;
 		this.dispatchEvent("enterComment", cmt);
 	};
-	var promiseResolver=function(resolve){resolve()};
-	CommentManager.prototype.send = function(data){
-		var self = this;
-		new Promise(promiseResolver).then(function(){
-			self.sendAsync(data);
-		})
-	}
 	CommentManager.prototype.sendAsync = function(data){
 		if(data.mode === 8){
 			console.log(data);
