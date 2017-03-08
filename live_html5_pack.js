@@ -996,6 +996,9 @@ var CommentManager = (function() {
 		}
 		return "matrix3d(" + matrix.join(",") + ")";
 	};
+	var autoOpacityFromComment = function(count){
+		return -Math.tanh((count-50)/25)/Math.PI*.8+.718;
+	};
 	var font = "-apple-system,Arial,'PingFang SC','STHeiti Light','Hiragino Kaku Gothic ProN','Microsoft YaHei'";
 
 	function CommentManager(stageObject){
@@ -1010,15 +1013,18 @@ var CommentManager = (function() {
 		this.pausedTime = 0;
 		this.canvas = document.createElement('canvas');
 		this.canvasOffscreen = document.createElement('canvas');
+		this.canvasFPS = 0;
 		self.canvas.style.width = '100%';
 		self.canvas.style.height = '100%';
+		self.canvas.style.transition = 'opacity .2s';
 		self.stage.appendChild(self.canvas);
 		this.options = {
 			global:{
 				opacity:1,
 				scale:1,
 				className:"cmt",
-				useCSS:false
+				useCSS:false,
+				autoOpacity:false
 			},
 			scroll:{
 				opacity:1,
@@ -1052,7 +1058,8 @@ var CommentManager = (function() {
 				var elapsed = new Date().getTime() - lastTPos;
 				lastTPos = new Date().getTime();
 				cmMgr.onTimerEvent(elapsed,cmMgr);
-			},10);
+				cmMgr.sendQueueLoader();
+			},1e3/60);
 			this.paused = false;
 			this.pausedTime = Date.now() - pauseTime;
 		};
@@ -1063,10 +1070,31 @@ var CommentManager = (function() {
 			pauseTime = Date.now();
 		};
 		var prevOpacity = this.options.global.opacity,
-		ticking=false;;
+		ticking=false,
+		canvasFPS=0,
+		onScreenCommentCount=0,
+		autoOpacity = function(){
+			if(self.options.global.autoOpacity){
+				self.canvas.style.opacity = self.options.global.opacity * autoOpacityFromComment(onScreenCommentCount);
+				self.options.scroll.opacity = autoOpacityFromComment(onScreenCommentCount);
+			}
+		};
+		setInterval(function(){
+			self.canvasFPS = canvasFPS;
+			canvasFPS = 0;
+		},1e3);
+		this.addEventListener('enterComment',function(){
+			onScreenCommentCount++;
+			autoOpacity();
+		});
+		this.addEventListener('exitComment',function(){
+			onScreenCommentCount--;
+			autoOpacity();
+		});
 		this.canvasDrawerWrapper = function(){
 			if(ticking)return;
 			ticking=true;
+			canvasFPS++;
 			if(prevOpacity != self.options.global.opacity){
 				prevOpacity = self.options.global.opacity;
 				self.canvas.style.opacity=prevOpacity;
@@ -1085,15 +1113,16 @@ var CommentManager = (function() {
 			var start = performance.now(),passed;
 			while(sendQueue.length > 0){
 				self.sendAsync(sendQueue.shift());
-				
 				passed = performance.now()-start;
 				if(passed > 8)
 					return;
 			}
-			
 		}
+		this.addEventListener('clear',function(){
+			sendQueue=[];
+		});
+		
 		requestAnimationFrame(this.canvasDrawerWrapper);
-		setInterval(this.sendQueueLoader,1e3/60);
 		(function(){
 			var prevRatio = window.devicePixelRatio;
 			window.addEventListener('resize',function(){
@@ -1226,9 +1255,6 @@ var CommentManager = (function() {
 			}
 		}
 	};
-	CommentManager.prototype.rescale = function(){
-		
-	};
 	CommentManager.prototype.canvasResize = function(){
 		var w=this.width,h=this.height,devicePixelRatio=window.devicePixelRatio,
 		canvas=this.canvas,canvasData=canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
@@ -1253,6 +1279,7 @@ var CommentManager = (function() {
 		canvasWidth = this.width, canvasHeight = this.height,
 		x, y;
 		ctx.clearRect(0, 0, canvasWidth * devicePixelRatio, canvasHeight * devicePixelRatio);
+		ctx.imageSmoothingEnabled = false;
 		
 		if(pausedTime!=0){
 			this.runline.forEach(function(cmt){
@@ -1275,26 +1302,26 @@ var CommentManager = (function() {
 			switch(cmt.mode){
 				case 1:
 					//scroll
-					cmt.rx += + cmt.speed * ( now - cmt.prev ) / 1e3;
+					cmt.rx += cmt.speed * ( now - cmt.prev ) / 1e3;
 					cmt.x = canvasWidth - cmt.rx;
-					x = (canvasWidth - cmt.rx) * devicePixelRatio;
-					y = cmt.y * devicePixelRatio;
+					x = (canvasWidth - cmt.rx);
+					y = cmt.y;
 					cmt.prev = now;
 				break;
 				case 4:
 					//bottom
 					cmt.x = (canvasWidth - cmt.width) / 2;
-					x = cmt.x * devicePixelRatio;
-					y = (canvasHeight - cmt.y - cmt.height) * devicePixelRatio;
+					x = cmt.x;
+					y = (canvasHeight - cmt.y - cmt.height);
 				break;
 				case 5:
 					//top
 					cmt.x = (canvasWidth - cmt.width) / 2;
-					x = cmt.x * devicePixelRatio;
-					y = (cmt.y) * devicePixelRatio;
+					x = cmt.x;
+					y = (cmt.y);
 				break;
 			}
-			ctx.drawImage(cmt.textData, round(x), round(y));
+			ctx.drawImage(cmt.textData, round(x * devicePixelRatio), round(y * devicePixelRatio));
 		});
 		
 		//this.canvas.style.opacity = this.options.global.opacity;
@@ -1317,12 +1344,13 @@ var CommentManager = (function() {
 	},ttlRecalc=function(cmt){
 		if(cmt.speed){
 			var runned = cmt.dur - cmt.ttl;
-			cmt.dur = ( this.width + cmt.width ) * cmt.speed * 1e3;
+			cmt.dur = ( cmt.parent.width + cmt.width ) / cmt.speed * 1e3;
 			cmt.ttl = cmt.dur - runned;
 		}
 	},commentCanvasDrawer = function(cmt){
 		var commentCanvas = document.createElement('canvas'), commentCanvasCtx = commentCanvas.getContext('2d'), devicePixelRatio = window.devicePixelRatio;
 		commentCanvasCtx.font = (cmt.size * devicePixelRatio) + 'px ' + font;
+		commentCanvasCtx.imageSmoothingEnabled = false;
 		cmt.width = ceil(commentCanvasCtx.measureText(cmt.text).width / devicePixelRatio)+2;
 		cmt.height = ceil(cmt.size+3)+2;
 		cmt.oriWidth = ceil(cmt.width * devicePixelRatio);
@@ -1370,30 +1398,12 @@ var CommentManager = (function() {
 		if(!state)
 			requestAnimationFrame(this.canvasDrawerWrapper);
 	};
-	CommentManager.prototype.sendCanvas = function(data){
-		if(!data)
-			return;
-		var now = Date.now();
-		cmt = new CoreComment(this, data);
-		cmt.dom = {style:{}};
-		commentCanvasDrawer(cmt);
-		if( data.mode == 1 || data.mode == 6){
-			cmt.rx = 0;
-			cmt.x = this.width;
-			cmt.prev = now;
-			cmt.speed = ( this.width + cmt.width ) / cmt.dur * 1e3;
-		}else if ( data.mode == 4 || data.mode == 5 ){
-			cmt.removeTime = now + cmt.dur;
+	CommentManager.prototype.autoOpacity = function(state){
+		this.options.global.autoOpacity = state;
+		if(!state){
+			this.canvas.style.opacity = this.options.global.opacity;
+			this.options.scroll.opacity = 1;
 		}
-		switch(cmt.mode){
-			default:
-			case 1:{this.csa.scroll.add(cmt);}break;
-			case 4:{this.csa.bottom.add(cmt);}break;
-			case 5:{this.csa.top.add(cmt);}break;
-		}
-		this.runline.push(cmt);
-		cmt.originalData=data;
-		this.dispatchEvent("enterComment", cmt);
 	};
 	CommentManager.prototype.sendAsync = function(data){
 		if(data.mode === 8){
@@ -1410,52 +1420,65 @@ var CommentManager = (function() {
 		
 		//canvas break
 		if(!this.options.global.useCSS && [1,4,5].indexOf(data.mode) != -1 ){
-			this.sendCanvas(data);
-			return;
-		}
-		
-		if(data.mode === 1 || data.mode === 2 || data.mode === 6){
-			var cmt = new CSSScrollComment(this, data);
-		}else{
+			var now = Date.now();
 			var cmt = new CoreComment(this, data);
+			cmt.dom = {style:{}};
+			commentCanvasDrawer(cmt);
+			if( data.mode == 1 || data.mode == 6){
+				cmt.rx = 0;
+				cmt.x = this.width;
+				cmt.prev = now;
+				cmt.speed = ( this.width + cmt.width ) / cmt.dur * 1e3;
+			}else if ( data.mode == 4 || data.mode == 5 ){
+				cmt.removeTime = now + cmt.dur;
+			}
+			switch(cmt.mode){
+				default:
+				case 1:{this.csa.scroll.add(cmt);}break;
+				case 4:{this.csa.bottom.add(cmt);}break;
+				case 5:{this.csa.top.add(cmt);}break;
+			}
+		}else{
+			
+			if(data.mode === 1 || data.mode === 2 || data.mode === 6){
+				var cmt = new CSSScrollComment(this, data);
+			}else{
+				var cmt = new CoreComment(this, data);
+			}
+			switch(cmt.mode){
+				case 1:cmt.align = 0;break;
+				case 2:cmt.align = 2;break;
+				case 4:cmt.align = 2;break;
+				case 5:cmt.align = 0;break;
+				case 6:cmt.align = 1;break;
+			}
+			cmt.init();
+			this.stage.appendChild(cmt.dom);
+			cmt.dom.transitionStartTime=(new Date).getTime();
+			switch(cmt.mode){
+				default:
+				case 1:{this.csa.scroll.add(cmt);}break;
+				case 2:{this.csa.scrollbtm.add(cmt);}break;
+				case 4:{this.csa.bottom.add(cmt);}break;
+				case 5:{this.csa.top.add(cmt);}break;
+				case 6:{this.csa.reverse.add(cmt);}break;
+				case 17:
+				case 7:{
+					if(data.rY !== 0 || data.rZ !== 0){
+						/** TODO: revise when browser manufacturers make up their mind on Transform APIs **/
+						cmt.dom.style.transform = getRotMatrix(data.rY, data.rZ);
+						cmt.dom.style.webkitTransform = getRotMatrix(data.rY, data.rZ);
+						cmt.dom.style.OTransform = getRotMatrix(data.rY, data.rZ);
+						cmt.dom.style.MozTransform = getRotMatrix(data.rY, data.rZ);
+						cmt.dom.style.MSTransform = getRotMatrix(data.rY, data.rZ);
+					}
+				}break;
+			}
+			cmt.y = cmt.y;
 		}
-		switch(cmt.mode){
-			case 1:cmt.align = 0;break;
-			case 2:cmt.align = 2;break;
-			case 4:cmt.align = 2;break;
-			case 5:cmt.align = 0;break;
-			case 6:cmt.align = 1;break;
-		}
-		cmt.init();
-		this.stage.appendChild(cmt.dom);
 		cmt.originalData=data;
-		cmt.dom.transitionStartTime=(new Date).getTime();
-		switch(cmt.mode){
-			default:
-			case 1:{this.csa.scroll.add(cmt);}break;
-			case 2:{this.csa.scrollbtm.add(cmt);}break;
-			case 4:{this.csa.bottom.add(cmt);}break;
-			case 5:{this.csa.top.add(cmt);}break;
-			case 6:{this.csa.reverse.add(cmt);}break;
-			case 17:
-			case 7:{
-				if(data.rY !== 0 || data.rZ !== 0){
-					/** TODO: revise when browser manufacturers make up their mind on Transform APIs **/
-					cmt.dom.style.transform = getRotMatrix(data.rY, data.rZ);
-					cmt.dom.style.webkitTransform = getRotMatrix(data.rY, data.rZ);
-					cmt.dom.style.OTransform = getRotMatrix(data.rY, data.rZ);
-					cmt.dom.style.MozTransform = getRotMatrix(data.rY, data.rZ);
-					cmt.dom.style.MSTransform = getRotMatrix(data.rY, data.rZ);
-				}
-			}break;
-		}
-		cmt.y = cmt.y;
 		this.dispatchEvent("enterComment", cmt);
 		this.runline.push(cmt);
-	};
-	CommentManager.prototype.sendComment = function(data){
-		console.log("CommentManager.sendComment is deprecated. Please use send instead");
-		this.send(data); // Wrapper for Backwards Compatible APIs
 	};
 	CommentManager.prototype.finish = function(cmt){
 		this.dispatchEvent("exitComment", cmt);
@@ -1627,6 +1650,8 @@ var ABP = {
 		usingCanvas:'正在使用Canvas',
 		usingCSS:'正在使用CSS',
 		useCSS:'使用CSS绘制弹幕',
+		autoOpacityOn:'关闭自动不透明度',
+		autoOpacityOff:'开启自动不透明度',
 		
 		copyComment:'复制弹幕',
 		findComment:'定位弹幕',
@@ -2006,6 +2031,7 @@ var ABP = {
 				_('div',{className:'hlsjs'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsDownloadSpeed)]),_('span',{className:'stats-column',id:'download-speed-hls-column',style:{verticalAlign:'top'}}),_('span')]),
 				_('br'),
 
+				_('div',{id:'canvas-fps'},[_('span',{className:'stats_name'},[_('text','Canvas fps：')]),_('span')]),
 				_('div',{className:'gecko'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsMozParse)]), _('span',{id:'mozParsedFrames'})]),
 				_('div',{className:'gecko'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsMozDecode)]), _('span',{id:'mozDecodedFrames'})]),
 				_('div',{className:'gecko'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsMozPaint)]), _('span',{id:'mozPaintedFrames'})]),
@@ -2166,7 +2192,10 @@ var ABP = {
 			]), _("p", {
 				"className": "label"
 			}, [_("text", ABP.Strings.commentOpacity)]), _("div", {
-				"className": "opacity-bar"
+				"className": "opacity-bar",
+				style:{
+					width:'calc(100% - 25px)'
+				}
 			}, [
 				_("div", {
 					"className": "bar"
@@ -2176,6 +2205,11 @@ var ABP = {
 					})
 				]),
 			]), _("div", {
+				"className": "prop-checkbox",
+				style:{
+					top:'121px'
+				}
+			}), _("div", {
 				"className": "shield-enrty"
 			}, [
 				_("text", ABP.Strings.commentBlock),
@@ -2438,6 +2472,7 @@ var ABP = {
 			btnDm: null,
 			btnLoop: null,
 			btnProp: null,
+			btnAutoOpacity: null,
 			videoDiv: null,
 			btnVolume: null,
 			video: null,
@@ -2609,6 +2644,9 @@ var ABP = {
 		}
 		saveSetting.useCSS=function(e){
 			saveSetting('useCSS',ABPInst.cmManager.options.global.useCSS);
+		}
+		saveSetting.autoOpacity=function(e){
+			saveSetting('autoOpacity',ABPInst.cmManager.options.global.autoOpacity);
 		}
 		ABPInst.swapVideo = function(video) {
 			var bufferListener=function() {
@@ -2855,6 +2893,9 @@ var ABP = {
 		/** Bind the Proportional Scale checkbox **/
 		var pcheck = playerUnit.getElementsByClassName("prop-checkbox");
 		if (pcheck.length <= 0) return;
+		ABPInst.btnAutoOpacity = pcheck[1];
+		ABPInst.btnAutoOpacity.tooltip(ABP.Strings.autoOpacityOn)
+		hoverTooltip(ABPInst.btnAutoOpacity);
 		ABPInst.btnProp = pcheck[0];
 		ABPInst.btnProp.tooltip(ABP.Strings.usingCanvas);
 		hoverTooltip(ABPInst.btnProp);
@@ -2934,6 +2975,7 @@ var ABP = {
 		lastChild='>:last-child',
 		playerDimension=document_querySelector('#player-dimension'+lastChild),
 		videoDimension=document_querySelector('#video-dimension'+lastChild),
+		canvasFPS=document_querySelector('#canvas-fps'+lastChild),
 		bufferColumn=document_querySelector('#buffer-health-column'),
 		realtimeBitrateColumn=document_querySelector('#realtime-bitrate-column'),
 		downloadSpeedColumn=document_querySelector('#download-speed-column'),
@@ -3089,6 +3131,9 @@ var ABP = {
 			}else{
 				hlsjsStyle.innerHTML='.hlsjs{display:none}';
 			}
+			
+			if(odd)
+				canvasFPS.innerHTML = ABPInst.cmManager.canvasFPS;
 			
 			if(enabledStats.gecko){
 				['mozParsedFrames','mozDecodedFrames','mozPaintedFrames'].find(function(name){
@@ -3301,6 +3346,14 @@ var ABP = {
 				this.parentNode.classList.toggle("on");
 				colorOn=!colorOn
 			});
+			ABPInst.btnAutoOpacity[addEventListener]("click", function(e) {
+				this.classList.toggle("on");
+				var autoOpacity=this.classList.contains("on");
+				ABPInst.cmManager.autoOpacity(autoOpacity);
+				this.tooltip(autoOpacity ? ABP.Strings.autoOpacityOn : ABP.Strings.autoOpacityOff);
+				saveSetting.autoOpacity();
+			});
+			if (ABP.playerConfig.autoOpacity) ABPInst.btnAutoOpacity.click();
 			ABPInst.btnProp[addEventListener]("click", function(e) {
 				this.classList.toggle("on");
 				var useCSS=this.classList.contains("on");
