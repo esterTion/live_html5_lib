@@ -1845,10 +1845,10 @@ var ABP = {
 				tooltipLeft -= elemWidth / 2;
 			}
 			tooltipRect=tooltip.getBoundingClientRect();
-			if(tooltipRect.left < 0){
+			if(tooltipRect.left < unitOffset.left){
 				tooltip.style.left='0px';
-			}else if(tooltipRect.right > window.innerWidth){
-				tooltip.style.left=window.innerWidth-tooltipRect.width+'px';
+			}else if(tooltipRect.right > unitOffset.right){
+				tooltip.style.left=unitOffset.width-tooltipRect.width+'px';
 			}
 			yoffset=yoffset||-6;
 			if (yoffset) {
@@ -2320,6 +2320,13 @@ var ABP = {
 			_('div',{className:'Context-Menu-Background'}),
 			_('div',{className:'Context-Menu-Body'},[
 				_('div',{id:'Player-Stats-Toggle'},[_('text',ABP.Strings.showStats)]),
+				_('div',{id:'Player-Speed-Control',className:'dm'},[_('div',{className:'content'},[_('text',ABP.Strings.playSpeed)]),_('div',{className:'dmMenu'},[
+					_('div',{'data-speed':0.5},[_('text',0.5)]),
+					_('div',{'data-speed':1},[_('text',1)]),
+					_('div',{'data-speed':1.25},[_('text',1.25)]),
+					_('div',{'data-speed':1.75},[_('text',1.5)]),
+					_('div',{'data-speed':2},[_('text',2)])
+				])]),
 				_('div',{className:'about'},[_('text',versionString)])
 			])
 		]));
@@ -3496,8 +3503,8 @@ var ABP = {
 				contextMenu.style.display='block';
 				var aboutDiv,remove=contextMenuBody.querySelectorAll('.dm'),originalData,color,isWhite,containerBox=ABPInst.playerUnit.getBoundingClientRect(),
 				dmitem;
-				for(i=remove.length-1;i>=0;i--){
-					contextMenuBody.removeChild(remove[i]);
+				for(i=remove.length-2;i>=0;i--){
+					remove[i].remove();
 				}
 				aboutDiv=contextMenuBody.firstChild;
 				for(i=0;i<dmList.length;i++){
@@ -3577,6 +3584,11 @@ var ABP = {
 				contextMenuBody.style.top=y+'px';
 			},
 			touchContextTimer=null,activingContext=!1;
+			contextMenuBody.querySelector('#Player-Speed-Control .dmMenu')[addEventListener]('click',function(e){
+				var speed=e.target.getAttribute('data-speed');
+				if(speed!=undefined)
+					ABPInst.video.playbackRate = speed;
+			});
 			contextMenuBody[addEventListener]('senderInfoFetched',function(e){
 				var card=e.detail;
 				if(card.mid!=currentSender || currentSenderDiv==null){
