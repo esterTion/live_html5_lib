@@ -2320,7 +2320,7 @@ var ABP = {
 			_('div',{className:'Context-Menu-Background'}),
 			_('div',{className:'Context-Menu-Body'},[
 				_('div',{id:'Player-Stats-Toggle'},[_('text',ABP.Strings.showStats)]),
-				_('div',{id:'Player-Speed-Control',className:'dm'},[_('div',{className:'content'},[_('text',ABP.Strings.playSpeed)]),_('div',{className:'dmMenu'},[
+				_('div',{id:'Player-Speed-Control',className:'dm'},[_('div',{className:'content'},[_('text',ABP.Strings.playSpeed)]),_('div',{className:'dmMenu',style:{top:'-37px'}},[
 					_('div',{'data-speed':0.5},[_('text',0.5)]),
 					_('div',{'data-speed':1},[_('text',1)]),
 					_('div',{'data-speed':1.25},[_('text',1.25)]),
@@ -3531,7 +3531,7 @@ var ABP = {
 					contextMenuBody.insertBefore(dmitem,aboutDiv);
 				}
 				var itemMenu=contextMenuBody.querySelectorAll('.dmMenu');
-				for(i=0;i<itemMenu.length;i++){
+				for(i=0;i<itemMenu.length-1;i++){
 					itemMenu[i].childNodes[0][addEventListener]('click',function(){
 						try{
 							var copy=document.createElement('input');
