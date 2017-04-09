@@ -2035,7 +2035,7 @@ var ABP = {
 				_('div',{style:{position:'relative'}},[
 				_('span',{className:'stats_name'},[_('text',ABP.Strings.statsBufferClip)]),_('span',{id:'buffer-clips'},[
 					_('span')
-				]),_('pre',{style:{position:'absolute',margin:0,left:'250px',width:'90px'}})]),
+				]),_('pre',{style:{position:'absolute',margin:0,left:'250px',width:'90px',fontFamily:'inherit'}})]),
 				
 				_('div',{id:'canvas-fps'},[_('span',{className:'stats_name'},[_('text','Canvas fps：')]),_('span')]),
 				_('div',{className:'gecko'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsMozParse)]), _('span',{id:'mozParsedFrames'})]),
@@ -3062,8 +3062,6 @@ var ABP = {
 		
 		setInterval(function(){
 			odd=!odd;
-			if(!playerStatsOn)
-				return;
 			playerDimension.innerHTML=video.offsetWidth+'x'+video.offsetHeight+' *'+devicePixelRatio;
 			if(enabledStats.videoDimension){
 				videoDimension.innerHTML=video.videoWidth+'x'+video.videoHeight;
@@ -3080,25 +3078,27 @@ var ABP = {
 			renderColumn(bufferColumn,bufferArr);
 			
 			//Buffer Clip Render
-			var buffered = video.buffered,
-			clipsContainer=document_querySelector('#buffer-clips>span');
-			
-			var duration = video.duration==Infinity ? buffered.end(buffered.length-1) : video.duration,
-			clipsTitle=[];
-			for(var i=0,start,length,clipsArr=[];i<buffered.length;i++){
-				if(i>=clipsContainer.childNodes.length){
-					clipsContainer.appendChild(_('span',{className:'buffer-clip'}));
+			if(playerStatsOn){
+				var buffered = video.buffered,
+				clipsContainer=document_querySelector('#buffer-clips>span');
+				
+				var duration = video.duration==Infinity ? buffered.end(buffered.length-1) : video.duration,
+				clipsTitle=[];
+				for(var i=0,start,length,clipsArr=[];i<buffered.length;i++){
+					if(i>=clipsContainer.childNodes.length){
+						clipsContainer.appendChild(_('span',{className:'buffer-clip'}));
+					}
+					start = buffered.start(i);
+					length = buffered.end(i) - start;
+					clipsContainer.childNodes[i].style.left=to2digitFloat(start/duration*100) + '%';
+					clipsContainer.childNodes[i].style.width=to2digitFloat(length / duration * 100) + '%';
+					clipsTitle.push(formatTime(start|0)+' - '+formatTime((start+length)|0));
 				}
-				start = buffered.start(i);
-				length = buffered.end(i) - start;
-				clipsContainer.childNodes[i].style.left=to2digitFloat(start/duration*100) + '%';
-				clipsContainer.childNodes[i].style.width=to2digitFloat(length / duration * 100) + '%';
-				clipsTitle.push(formatTime(start|0)+' - '+formatTime((start+length)|0));
+				while(i<clipsContainer.childNodes.length){
+					clipsContainer.childNodes[i].remove();
+				}
+				clipsContainer.parentNode.parentNode.childNodes[2].innerHTML=clipsTitle.join('\n');
 			}
-			while(i<clipsContainer.childNodes.length){
-				clipsContainer.childNodes[i].remove();
-			}
-			clipsContainer.parentNode.parentNode.childNodes[2].innerHTML=clipsTitle.join('\n');
 			
 			if(player.flv!=null){
 				flvjsStyle.innerHTML='';
@@ -3121,7 +3121,8 @@ var ABP = {
 							flvjsStats[i++].innerHTML=to2digitFloat(bitrate)+' kbps';
 							realtimeBitrateArr.push(bitrate);
 							realtimeBitrateArr.shift();
-							renderColumn(realtimeBitrateColumn,realtimeBitrateArr);
+							if(playerStatsOn)
+								renderColumn(realtimeBitrateColumn,realtimeBitrateArr);
 						}else{
 							i++;
 						}
@@ -3135,7 +3136,8 @@ var ABP = {
 				if(odd){
 					downloadSpeedArr.push(statisticsInfo.speed);
 					downloadSpeedArr.shift();
-					renderColumn(downloadSpeedColumn,downloadSpeedArr);
+					if(playerStatsOn)
+						renderColumn(downloadSpeedColumn,downloadSpeedArr);
 					flvjsStats[i++].innerHTML=to2digitFloat(statisticsInfo.speed)+' KB/s'
 					player.flv._statisticsInfo.speed=0;
 				}
@@ -3157,7 +3159,8 @@ var ABP = {
 					var speed=player.hls.speed||0;
 					downloadSpeedHlsArr.push(speed);
 					downloadSpeedHlsArr.shift();
-					renderColumn(downloadSpeedHlsColumn,downloadSpeedHlsArr);
+					if(playerStatsOn)
+						renderColumn(downloadSpeedHlsColumn,downloadSpeedHlsArr);
 					hlsjsStats[i++].innerHTML=to2digitFloat(speed)+' KB/s'
 				}
 			}else{
