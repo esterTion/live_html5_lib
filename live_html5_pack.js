@@ -2006,6 +2006,7 @@ var ABP = {
 			// Assuming we are injecting
 			var container = _("div", {
 				"className": "ABP-Unit",
+				theme:'YouTube',
 				"style": {
 					"width": params.width.toString().indexOf("%") >= 0 ? params.width : params.width + "px",
 					"height": params.height.toString().indexOf("%") >= 0 ? params.height : params.height + "px"
@@ -2115,7 +2116,10 @@ var ABP = {
 
 				_('div',{style:{position:'relative'}},[
 				_('span',{className:'stats_name'},[_('text',ABP.Strings.statsBufferClip)]),_('span',{id:'buffer-clips'},[
-					_('span')
+					_('span'),
+					_('span',{},[
+						_('div',{style:{width:'1px',height:'400%',top:'-150%',position:'absolute',background:'#FFF',left:0}})
+					])
 				]),_('pre',{style:{position:'absolute',margin:0,left:'250px',width:'90px',fontFamily:'inherit'}})]),
 				
 				_('div',{id:'canvas-fps'},[_('span',{className:'stats_name'},[_('text','Canvas fps：')]),_('span')]),
@@ -2142,7 +2146,7 @@ var ABP = {
 			"className": "ABP-Bottom",
 		}, [_("div", {
 			"className": "ABP-Bottom-Extend"
-		}),_("div", {
+		}),_('div',{className:'ABP-Bottom-Wrapper'},[_("div", {
 			"className": "ABP-Text",
 		}, [
 			_("div", {
@@ -2314,7 +2318,7 @@ var ABP = {
 			}), _("div", {
 				"className": "button ABP-Web-FullScreen icon-screen"
 			})])
-		]),_("div", {
+		]),]),_("div", {
 			"className": "BiliPlus-Scale-Menu"
 		}, [_("div",{
 			"className": "Video-Defination"
@@ -2411,7 +2415,7 @@ var ABP = {
 					_('div',{'data-speed':0.5},[_('text',0.5)]),
 					_('div',{'data-speed':1},[_('text',1)]),
 					_('div',{'data-speed':1.25},[_('text',1.25)]),
-					_('div',{'data-speed':1.75},[_('text',1.5)]),
+					_('div',{'data-speed':1.5},[_('text',1.5)]),
 					_('div',{'data-speed':2},[_('text',2)])
 				])]),
 				_('div',{className:'about'},[_('text',versionString)])
@@ -3179,6 +3183,7 @@ var ABP = {
 					clipsContainer.childNodes[i].remove();
 				}
 				clipsContainer.parentNode.parentNode.childNodes[2].innerHTML=clipsTitle.join('\n');
+				document_querySelector('#buffer-clips>span>div').style.left = to2digitFloat(video.currentTime / duration*100) + '%';
 			}
 			
 			if(player.flv!=null){
@@ -3929,6 +3934,18 @@ var ABP = {
 			ABPInst.barVolumeHitArea[addEventListener]("mousedown", function(e) {
 				draggingVolume = true;
 			});
+			var hideVolumeTimeout=null,
+			showVolume = function(){
+				hideVolumeTimeout && clearTimeout(hideVolumeTimeout)
+				addClass(playerUnit,'volume-show');
+			},
+			hideVolume = function(){
+				hideVolumeTimeout = setTimeout(function(){removeClass(playerUnit,'volume-show');},2e3);
+			}
+			ABPInst.barVolumeHitArea[addEventListener]('mouseenter',showVolume);
+			ABPInst.btnVolume[addEventListener]('mouseenter',showVolume);
+			ABPInst.barVolumeHitArea[addEventListener]('mouseleave',hideVolume);
+			ABPInst.btnVolume[addEventListener]('mouseleave',hideVolume);
 			ABPInst.barVolume.style.width = (ABPInst.video.volume * 100) + "%";
 			var updateVolume = function(volume) {
 				ABPInst.barVolume.style.width = (volume * 100) + "%";
