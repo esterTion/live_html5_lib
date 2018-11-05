@@ -1749,7 +1749,7 @@ var ABP = {
 	if (!ABP) return;
 	var $$ = jQuery,
 	addEventListener='addEventListener',
-	versionString='HTML5 Player ver.180320 based on ABPlayer-bilibili-ver',
+	versionString='HTML5 Player ver.181106 based on ABPlayer-bilibili-ver',
 	$ = function(e) {
 		return document.getElementById(e);
 	};
@@ -2116,6 +2116,7 @@ var ABP = {
 				_('div',{className:'hlsjs'},[_('span',{className:'stats_name'},[_('text','当前分片：')]),_('span',{style:{width:'180px',height:'5px',display:'inline-block',position:'relative',border:'solid #AAA 1px',borderRadius:'4px',verticalAlign:'middle',marginRight:'2px'}},[
 					_('span',{id:'download-progress-hls',style:{position:'absolute',left:'2px',right:'2px',top:'1px',bottom:'1px',background:'#CCC',borderRadius:'3px',transition:'width .3s',width:0}})
 				]),_('span')]),
+				_('div',{className:'hlsjs',title:'1 kbps = 1000 bps'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsRealtimeBitrate)]),_('span',{className:'stats-column',id:'realtime-bitrate-column-hls',style:{verticalAlign:'top'}}),_('span')]),
 				_('div',{className:'hlsjs'},[_('span',{className:'stats_name'},[_('text',ABP.Strings.statsDownloadSpeed)]),_('span',{className:'stats-column',id:'download-speed-hls-column',style:{verticalAlign:'top'}}),_('span')]),
 				_('br'),
 
@@ -3074,6 +3075,7 @@ var ABP = {
 		canvasFPS=document_querySelector('#canvas-fps'+lastChild),
 		bufferColumn=document_querySelector('#buffer-health-column'),
 		realtimeBitrateColumn=document_querySelector('#realtime-bitrate-column'),
+		realtimeBitrateColumnHls=document_querySelector('#realtime-bitrate-column-hls'),
 		downloadSpeedColumn=document_querySelector('#download-speed-column'),
 		downloadSpeedHlsColumn=document_querySelector('#download-speed-hls-column'),
 		playFpsColumn=document_querySelector('#playback-fps-column'),
@@ -3126,6 +3128,9 @@ var ABP = {
 		realtimeBitrateColumn.innerHTML=svgStats;
 		realtimeBitrateColumn.firstChild.lastChild.setAttribute('points', '1,21 180,21 120,22 120,1');
 		realtimeBitrateColumn=realtimeBitrateColumn.querySelector('polyline');
+		realtimeBitrateColumnHls.innerHTML=svgStats;
+		realtimeBitrateColumnHls.firstChild.lastChild.setAttribute('points', '1,21 180,21 120,22 120,1');
+		realtimeBitrateColumnHls=realtimeBitrateColumnHls.querySelector('polyline');
 		downloadSpeedColumn.innerHTML=svgStats;
 		downloadSpeedColumn=downloadSpeedColumn.querySelector('polyline');
 		downloadSpeedHlsColumn.innerHTML=svgStats;
@@ -3306,6 +3311,23 @@ var ABP = {
 				}
 				document_querySelector('#download-progress-hls').style.width=percentage+'%';
 				hlsjsStats[i++].innerHTML=to2digitFloat(percentage)+'%'
+
+				// 码率
+				var bitrateMap = hlsBitrateMonitor.levels.current.bitrateMap, bitrate = bitrateMap[video.currentTime | 0];
+				if (bitrate!=undefined) {
+					hlsjsStats[i++].textContent = to2digitFloat(bitrate)+' kbps';
+				} else {
+					hlsjsStats[i++].textContent = 'N/A';
+				}
+				if (playerStatsOn) {
+					var realtimeBitrateArr=[];
+					var time = (video.currentTime | 0) - 40;
+					while (realtimeBitrateArr.length < 60) {
+						realtimeBitrateArr.push(bitrateMap[time] ||0);
+						time++;
+					}
+					renderColumn(realtimeBitrateColumn,realtimeBitrateArr);
+				}
 				if(odd){
 					var speed=player.hls.speed||0;
 					downloadSpeedHlsArr.push(speed);
