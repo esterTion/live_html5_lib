@@ -3326,7 +3326,7 @@ var ABP = {
 						realtimeBitrateArr.push(bitrateMap[time] ||0);
 						time++;
 					}
-					renderColumn(realtimeBitrateColumn,realtimeBitrateArr);
+					renderColumn(realtimeBitrateColumnHls,realtimeBitrateArr);
 				}
 				if(odd){
 					var speed=player.hls.speed||0;
