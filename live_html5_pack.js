@@ -2721,30 +2721,6 @@ var ABP = {
 			},
 			swapVideo: null
 		};
-		var saveSetting=function(k,v){
-			var settings=localStorage.html5Settings||'{}';
-			settings=JSON.parse(settings);
-			settings[k]=v;
-			localStorage.html5Settings=JSON.stringify(settings);
-		}
-		saveSetting.scale=function(e){
-			saveSetting('scale',ABPInst.commentScale);
-		}
-		saveSetting.opacity=function(e){
-			saveSetting('opacity',ABPInst.cmManager.options.global.opacity);
-		}
-		saveSetting.speed=function(e){
-			saveSetting('speed',ABPInst.commentSpeed);
-		}
-		saveSetting.commentVisible=function(e){
-			saveSetting('commentVisible',ABPInst.cmManager.display);
-		}
-		saveSetting.useCSS=function(e){
-			saveSetting('useCSS',ABPInst.cmManager.options.global.useCSS);
-		}
-		saveSetting.autoOpacity=function(e){
-			saveSetting('autoOpacity',ABPInst.cmManager.options.global.autoOpacity);
-		}
 		ABPInst.swapVideo = function(video) {
 			var bufferListener=function() {
 				if (!dragging) {
@@ -3456,7 +3432,7 @@ var ABP = {
 			videoDivClickEventListener=function(e) {
 				var now=Date.now();
 				if(now-lastClick<=500){
-					ABPInst.btnFull.click();
+					ABPInst[ABPInst.state.fullscreen?'btnFull':'btnWebFull'].click();
 				}else{
 					if(video.paused){
 						ABPInst.btnPlay.click();
@@ -3537,7 +3513,7 @@ var ABP = {
 				var autoOpacity=this.classList.contains("on");
 				ABPInst.cmManager.autoOpacity(autoOpacity);
 				this.tooltip(autoOpacity ? ABP.Strings.autoOpacityOn : ABP.Strings.autoOpacityOff);
-				saveSetting.autoOpacity();
+				saveConfigurations();
 			});
 			if (ABP.playerConfig.autoOpacity) ABPInst.btnAutoOpacity.click();
 			ABPInst.btnProp[addEventListener]("click", function(e) {
@@ -3545,7 +3521,7 @@ var ABP = {
 				var useCSS=this.classList.contains("on");
 				ABPInst.cmManager.useCSS(useCSS);
 				this.tooltip(useCSS ? ABP.Strings.usingCSS : ABP.Strings.usingCanvas)
-				saveSetting.useCSS();
+				saveConfigurations();
 			});
 			if (ABP.playerConfig.useCSS) ABPInst.btnProp.click();
 			var fullscreenChangeHandler = function() {
@@ -3627,7 +3603,7 @@ var ABP = {
 					this.className = "button ABP-CommentShow icon-comment";
 					this.tooltip(ABP.Strings.showComment);
 				}
-				saveSetting.commentVisible();
+				saveConfigurations();
 			});
 			ABPInst.btnLoop[addEventListener]("click", function() {
 				if(player.flv!=null){
@@ -3830,14 +3806,15 @@ var ABP = {
 			});
 
 			var saveConfigurations = function() {
-				ABPInst.playerUnit.dispatchEvent(new CustomEvent("saveconfig", {
-					"detail": {
-						"volume": ABPInst.video.volume,
-						"opacity": ABPInst.cmManager.options.global.opacity,
-						"scale": ABPInst.commentScale,
-						"prop": ABPInst.proportionalScale
-					}
-				}));
+				localStorage.html5Settings = JSON.stringify({
+					"volume": ABPInst.video.volume,
+					'scale': ABPInst.commentScale,
+					'opacity': ABPInst.cmManager.options.global.opacity,
+					'speed': ABPInst.commentSpeed,
+					'commentVisible': ABPInst.cmManager.display,
+					'useCSS': ABPInst.cmManager.options.global.useCSS,
+					'autoOpacity': ABPInst.cmManager.options.global.autoOpacity,
+				});
 			}
 
 			var sendComment = function() {
@@ -4022,7 +3999,7 @@ var ABP = {
 					if (newOpacity > 1) newOpacity = 1;
 					ABPInst.cmManager.options.global.opacity = newOpacity;
 					updateOpacity(ABPInst.cmManager.options.global.opacity);
-					saveSetting.opacity();
+					saveConfigurations();
 				}
 				draggingOpacity = false;
 			});
@@ -4056,7 +4033,7 @@ var ABP = {
 					if (newScale > 2) newScale = 2;
 					ABPInst.commentScale = newScale;
 					updateScale(ABPInst.commentScale);
-					saveSetting.scale();
+					saveConfigurations();
 				}
 				draggingScale = false;
 			});
@@ -4091,7 +4068,7 @@ var ABP = {
 					if (newSpeed > 2) newSpeed = 2;
 					ABPInst.commentSpeed = newSpeed;
 					updateSpeed(ABPInst.commentSpeed);
-					saveSetting.speed();
+					saveConfigurations();
 				}
 				draggingSpeed = false;
 			});
